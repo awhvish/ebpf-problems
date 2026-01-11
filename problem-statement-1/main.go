@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net"
 	"os"
@@ -28,6 +29,13 @@ func main() {
 		log.Fatal("Failed to find lo interface : ", err)
 	}
 
+	var key uint32 = 0
+	var port uint32
+	fmt.Scanln(&port)
+
+	if err := objs.PortMap.Update(key, port, 0); err != nil {
+		log.Fatal("Error updating PortMap: ", err)
+	}
 	l, err := link.AttachXDP(link.XDPOptions{
 		Program:   objs.DropPacket,
 		Interface: iface.Index,
@@ -37,7 +45,7 @@ func main() {
 	}
 	defer l.Close()
 
-	log.Println("Blocking TCP packets on Port 4040. CTRL+C to stop.")
+	log.Printf("Blocking TCP packets on %d. CTRL+C to stop.\n", port)
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
