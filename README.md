@@ -19,7 +19,7 @@ Test Files: [Here](https://github.com/awhvish/ebpf-problems/blob/master/problem-
 ## Problem Statement 2
 Test Files: [Here](https://github.com/awhvish/ebpf-problems/blob/master/problem-statement-2/read.md)
 
-## Problem Statement 2
+## Problem Statement 3
 
 ```go
     package main
