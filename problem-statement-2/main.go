@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -22,6 +23,15 @@ func main() {
 	}
 	defer objs.Close()
 
+	var key uint32 = 0
+	var port uint32
+
+	fmt.Println("Enter port number to allow for 'myprocess': ")
+	fmt.Scanln(&port)
+
+	if err := objs.PortMap.Update(key, port, 0); err != nil {
+		log.Fatal("Error updating PortMap: ", err)
+	}
 	cgroupPath := "/sys/fs/cgroup"
 	l, err := link.AttachCgroup(link.CgroupOptions{
 		Path:    cgroupPath,

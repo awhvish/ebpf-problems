@@ -10,8 +10,8 @@ TARGET_PROCESS: `myprocess` - The process that is allowed
 To Test:
 
 1. packet with TARGET_PROCESS binds to ALLOWED_PORT: accept
-    - 
+    - allowed
 2. packet with TARGET_PROCESS arrives at some other port: reject
-    - 
+    - blocked
 3. packet with any other process to ALLOWED_PORT or any other port: accept
-    - 
+    - allowed
