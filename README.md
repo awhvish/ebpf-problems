@@ -71,3 +71,9 @@ If the channel were to be of no buffer (`make (chan func())`), then it is forced
 Any program that requires asynchronous management can use this pattern.
 Specifically, In checkout pages, after successful orders we are made to wait for certain seconds in many applications to finish all API calls and then redirects to success.
 We can use this pattern to remove the entire waiting period of those seconds, and redirect when all the goroutines finish their respective functions.
+
+
+**References while solving these problems:**
+
+Learning eBPF - by Liz Rice
+
