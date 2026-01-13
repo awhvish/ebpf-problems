@@ -16,7 +16,6 @@ struct {
 
 SEC("xdp")
 int drop_packet(struct xdp_md *ctx) {
-    int drop = 0;
 
     void *data = (void*) (long) ctx->data;
     void *data_end = (void*) (long) ctx->data_end;

@@ -31,6 +31,7 @@ func main() {
 
 	var key uint32 = 0
 	var port uint32
+	fmt.Println("Enter port number to block: ")
 	fmt.Scanln(&port)
 
 	if err := objs.PortMap.Update(key, port, 0); err != nil {
