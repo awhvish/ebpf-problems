@@ -1,3 +1,3 @@
-package main2
+package main
 
 //go:generate go tool bpf2go -tags linux main drop_process.c
