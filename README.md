@@ -41,6 +41,16 @@ Test Files: [Here](https://github.com/awhvish/ebpf-problems/blob/master/problem-
         fmt.Println("Hello")
     }
 ```
+### How the code construct works:
+
+1. The code mentioned is an example of the Worker Pool pattern in golang.
+2. `cnp` -> is a channel that accepts functions with a buffer of 10
+3. four goroutines are launched simultaneously with the for loop, and inside each there lies a ranged channel.
+4. It waits for a task to arrive at cnp, does it, and goes back to sleep.
+5. Whenever a function is passed into cnp, one of the idle goroutine wakes up, performs the function, and goes back to sleep.
+
+Main function starts -> starts 4 goroutines -> passes function into cnp(which is supposed to print 'HERE1') -> prints 'Hello' -> Main function ends
+
 
 ### Why `HERE1` is not being printed?
 `cnp <- func(){...}` passes a function that is supposed to print 'HERE1', but since it is a goroutine our program never waits for the goroutine to finish working.
