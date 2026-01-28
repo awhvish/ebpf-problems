@@ -1,79 +1,139 @@
-## Run 
-To Run ebpf:
+# eBPF Network Security Filter
 
-```code
-  go generate .
-  go build -o myfile .
-  sudo ./myfile
+A high-performance network packet filter leveraging eBPF (Extended Berkeley Packet Filter) for customizable traffic control at the kernel level. Built with C for eBPF programs and Go for userspace management using `libbpf` and Cilium eBPF libraries.
+
+## Overview
+
+This project implements a flexible network security framework that enables real-time packet filtering and process-level network access control without modifying kernel code or adding latency to the network stack.
+
+### Key Features
+
+- **Protocol-Based Filtering**: Selective TCP/UDP packet filtering at the XDP (eXpress Data Path) layer for maximum performance
+- **Port-Based Blocking**: Dynamic port blocking capabilities with runtime configuration
+- **Process Whitelisting**: Process-level network access control using cgroup-based eBPF programs
+- **Kernel-Userspace Communication**: Bidirectional communication channel using BPF maps for dynamic rule updates
+- **Zero-Copy Packet Processing**: Leverages XDP for packet decisions at the earliest possible point in the network stack
+
+## Architecture
+
+### Components
+
+1. **XDP Packet Filter** ([`problem-statement-1/drop_tcp.c`](problem-statement-1/drop_tcp.c))
+   - Attaches to network interface at XDP hook point
+   - Performs TCP protocol identification and port-based filtering
+   - Utilizes BPF maps for dynamic port configuration from userspace
+
+2. **Cgroup Process Filter** ([`problem-statement-2/drop_process.c`](problem-statement-2/drop_process.c))
+   - Intercepts socket bind operations at the cgroup level
+   - Implements process name-based whitelisting/blacklisting
+   - Allows fine-grained control over which processes can bind to specific ports
+
+3. **Userspace Controller** (Go)
+   - Loads and manages eBPF programs using Cilium eBPF library
+   - Provides interactive configuration interface
+   - Handles graceful attachment/detachment of eBPF programs
+
+### Communication Flow
+
+```
+User Input (Go) → BPF Map Update → Kernel Space (eBPF) → Packet Decision (XDP_PASS/XDP_DROP)
+                                                     ↓
+                                            Debug Logs (trace_pipe)
 ```
 
-For debug logs:
-```code
-  sudo cat /sys/kernel/debug/tracing/trace_pipe
+## Technical Implementation
+
+### TCP Port-Based Filtering
+
+The XDP program performs the following packet processing pipeline:
+
+1. **Ethernet Header Validation**: Verifies packet boundaries and extracts protocol type
+2. **IP Header Processing**: Validates IPv4 packets and checks protocol field
+3. **TCP Header Extraction**: Parses TCP header to extract destination port
+4. **Map Lookup**: Queries BPF map for blocked port configuration
+5. **Verdict**: Returns `XDP_DROP` for matched traffic, `XDP_PASS` otherwise
+
+```c
+// Kernel-space BPF map for userspace communication
+struct {
+    __uint(type, BPF_MAP_TYPE_ARRAY);
+    __uint(max_entries, 1);
+    __type(key, __u32);
+    __type(value, __u32);
+} port_map SEC(".maps");
 ```
 
-## Problem Statement 1
+### Process-Level Access Control
 
-Test Files: [Here](https://github.com/awhvish/ebpf-problems/blob/master/problem-statement-1/read.md)
+Uses cgroup eBPF hooks to intercept socket bind calls and enforce process-based policies:
 
-## Problem Statement 2
-Test Files: [Here](https://github.com/awhvish/ebpf-problems/blob/master/problem-statement-2/read.md)
+- Extracts process name using `bpf_get_current_comm()`
+- Compares against whitelist using compile-time verified loops
+- Allows/denies bind operations based on configured rules
 
-**Video demonstration for both the problems:** [Here](https://drive.google.com/drive/folders/1NVEwvcEzd-zaS6Q5YoPwql5hIMZWXf7A?usp=sharing)
+## Quick Start
 
-## Problem Statement 3
+### Prerequisites
 
-```go
-    package main
-    
-    import "fmt"
-    
-    func main() {
-        cnp := make(chan func(), 10)
-        for i := 0; i < 4; i++ {
-            go func() {
-                for f := range cnp {
-                    f()
-                }
-            }()
-        }
-        cnp <- func() {
-            fmt.Println("HERE1")
-        }
-        fmt.Println("Hello")
-    }
+- Linux kernel 5.10+ with eBPF support enabled
+- Go 1.18+
+- Root/sudo privileges for eBPF operations
+
+### Build and Run
+
+**1. TCP Port Filter**
+```bash
+cd problem-statement-1
+go generate .
+go build -o tcp-filter .
+sudo ./tcp-filter
+# Enter port number when prompted (e.g., 4040)
 ```
-### How the code construct works:
 
-1. The code mentioned is an example of the Worker Pool pattern in golang.
-2. `cnp` -> is a channel that accepts functions with a buffer of 10
-3. four goroutines are launched simultaneously with the for loop, and inside each there lies a ranged channel.
-4. It waits for a task to arrive at cnp, does it, and goes back to sleep.
-5. Whenever a function is passed into cnp, one of the idle goroutine wakes up, performs the function, and goes back to sleep.
+**2. Process-Based Filter**
+```bash
+cd problem-statement-2
+go generate .
+go build -o process-filter .
+sudo ./process-filter
+# Enter allowed port for 'myprocess'
+```
 
-Main function starts -> starts 4 goroutines -> passes function into cnp(which is supposed to print 'HERE1') -> prints 'Hello' -> Main function ends
+### Monitoring
 
+Monitor eBPF kernel logs in real-time:
+```bash
+sudo cat /sys/kernel/debug/tracing/trace_pipe
+```
 
-### Why `HERE1` is not being printed?
-`cnp <- func(){...}` passes a function that is supposed to print 'HERE1', but since it is a goroutine our program never waits for the goroutine to finish working.
-that is, it passed function to channel,  prints "Hello" and main function ends.
-To see the `HERE1` we can add a wait group or a sleep of 1 second.
+## Demonstrations
 
-### Significance of the for loop with 4 iterations?
-Launches 4 independent goroutines with the help of anonymous functions.
+- **Video Walkthroughs**: [Google Drive](https://drive.google.com/drive/folders/1NVEwvcEzd-zaS6Q5YoPwql5hIMZWXf7A?usp=sharing)
+- **Problem Statements**: 
+  - [TCP Port Blocking](https://github.com/awhvish/ebpf-problems/blob/master/problem-statement-1/read.md)
+  - [Process Whitelisting](https://github.com/awhvish/ebpf-problems/blob/master/problem-statement-2/read.md)
 
-### Significance of make(chan func(), 10)?
-It creates a buffered channel that can hold 10 functions in the memory simultaneously.
-The sender can keep sending upto 10 functions, until it has to wait for one of them to finish and accept new function.
-If the channel were to be of no buffer (`make (chan func())`), then it is forced to wait for each and every task at hand, and hence we would see 'HERE1' printed.
+## Technical Details
 
-### Use cases of Worker Pool pattern?
-Any program that requires asynchronous management can use this pattern.
-Specifically, In checkout pages, after successful orders we are made to wait for certain seconds in many applications to finish all API calls and then redirects to success.
-We can use this pattern to remove the entire waiting period of those seconds, and redirect when all the goroutines finish their respective functions.
+### Stack Technologies
 
+- **C**: eBPF kernel programs with BPF helper functions
+- **Go**: Userspace management and control plane
+- **libbpf/Cilium eBPF**: BPF program loading and map management
+- **XDP**: eXpress Data Path for high-performance packet processing
+- **cgroup v2**: Process-level network policy enforcement
 
-**References while solving these problems:**
+### Performance Characteristics
 
-Learning eBPF - by Liz Rice
+- **Zero-copy packet processing**: Decisions made before sk_buff allocation
+- **Minimal CPU overhead**: eBPF verifier ensures safe, bounded execution
+- **No kernel recompilation**: Dynamic loading of eBPF programs
+- **Scalable filtering**: O(1) map lookups for port matching
+
+## Learning Resources
+
+This project was developed with insights from:
+- **Learning eBPF** by Liz Rice
+- Linux kernel documentation
+- Cilium eBPF library examples
 
